@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="SOLAR — an A-Level countdown and revision tracker for the Class of 2027." />
+<title>SOLAR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     SOLAR — single-file site
+     Palette + type inspired by a corporate-minimal reference:
+     near-black ground, charcoal panels, one warm "solar" accent.
+     ============================================================ */
+  :root {
+    color-scheme: dark;
+
+    --bg:        #0A0A0B;
+    --panel:     #141416;
+    --panel-2:   #1B1B1E;
+    --ink:       #F5F5F3;
+    --ink-dim:   #A2A2A8;
+    --ink-faint: #6E6E75;
+    --line:      rgba(255, 255, 255, 0.09);
+    --line-2:    rgba(255, 255, 255, 0.16);
+    --accent:    #F5B841;   /* amber — the "solar" note */
+    --accent-ink:#0A0A0B;   /* text on amber fills */
+    --good:      #6FCF7F;
+
+    --font-display: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-body:    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono:    "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+    --wrap: 1120px;
+    --pad: clamp(20px, 5vw, 64px);
+    --radius: 14px;
+    --t-fast: 160ms;
+    --t-med: 260ms;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* layered background: soft solar glow + faint dot grid */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(58rem 34rem at 50% -12%, rgba(245, 184, 65, 0.10), transparent 62%),
+      radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.045) 1px, transparent 0);
+    background-size: auto, 42px 42px;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  .skip {
+    position: absolute; left: 16px; top: -60px;
+    background: var(--accent); color: var(--accent-ink);
+    padding: 10px 16px; border-radius: 8px; font-weight: 600;
+    z-index: 100; transition: top var(--t-fast);
+  }
+  .skip:focus { top: 12px; }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px 24px; flex-wrap: wrap;
+    padding: 14px var(--pad);
+    background: rgba(10, 10, 11, 0.72);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: 0.42em;
+    padding-left: 0.42em;
+    color: var(--ink);
+  }
+  .brand .dot { color: var(--accent); }
+
+  .nav-links {
+    display: flex; flex-wrap: wrap; gap: 4px 6px;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .nav-links a {
+    padding: 8px 12px;
+    color: var(--ink-dim);
+    border-radius: 8px;
+    transition: color var(--t-fast), background var(--t-fast);
+  }
+  .nav-links a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
+  .nav-links a.active { color: var(--accent); }
+  .nav-links a.active::after {
+    content: ""; display: block; height: 2px; margin-top: 6px;
+    background: var(--accent); border-radius: 2px;
+  }
+
+  /* ---------- page shell ---------- */
+  main { display: block; }
+
+  .page { display: none; }
+  .page.active {
+    display: block;
+    animation: fadeUp var(--t-med) ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .wrap {
+    max-width: var(--wrap);
+    margin: 0 auto;
+    padding: clamp(48px, 9vh, 104px) var(--pad) clamp(64px, 12vh, 128px);
+  }
+
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+  h1:focus-visible, h2:focus-visible { outline: none; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 22px;
+  }
+
+  /* ---------- hero / home ---------- */
+  .hero-title {
+    font-size: clamp(2.7rem, 9vw, 6rem);
+    line-height: 0.98;
+    max-width: 16ch;
+    margin-bottom: 14px;
+  }
+  .hero-sub {
+    color: var(--ink-dim);
+    font-size: clamp(1rem, 2.4vw, 1.2rem);
+    max-width: 46ch;
+    margin: 0 0 clamp(40px, 7vh, 72px);
+  }
+
+  /* ---------- countdown ---------- */
+  .countdown {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .cd-cell {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: clamp(16px, 3vw, 28px) 12px;
+    text-align: center;
+  }
+  .cd-num {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: clamp(1.8rem, 6vw, 3.4rem);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .cd-cell.is-secs .cd-num { color: var(--accent); }
+  .cd-label {
+    display: block;
+    margin-top: 12px;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .cd-foot {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin-bottom: clamp(48px, 8vh, 80px);
+  }
+
+  /* ---------- subject list (home) ---------- */
+  .subjects-head {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .subject-row {
+    display: flex; align-items: center; gap: clamp(14px, 3vw, 32px);
+    padding: clamp(20px, 4vw, 34px) 4px;
+    border-bottom: 1px solid var(--line);
+    transition: padding-left var(--t-med), background var(--t-fast);
+  }
+  .subject-row:hover { background: rgba(255, 255, 255, 0.03); padding-left: 14px; }
+  .subject-row:hover .s-name { color: var(--accent); }
+  .subject-row:hover .s-arrow { transform: translateX(6px); color: var(--accent); }
+  .s-index {
+    font-family: var(--font-mono); font-size: 0.85rem; color: var(--ink-faint);
+    min-width: 3ch;
+  }
+  .s-name {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(1.6rem, 5.4vw, 3rem);
+    letter-spacing: -0.02em;
+    flex: 1;
+    transition: color var(--t-fast);
+  }
+  .s-meta {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-faint);
+    text-align: right; display: none;
+  }
+  .s-arrow { color: var(--ink-dim); transition: transform var(--t-med), color var(--t-fast); flex-shrink: 0; }
+
+  /* ---------- overall progress meter ---------- */
+  .meter {
+    margin-top: clamp(44px, 8vh, 76px);
+    padding: 22px 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .meter-top {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    font-family: var(--font-mono); font-size: 0.76rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-dim);
+    margin-bottom: 14px;
+  }
+  .meter-top b { color: var(--accent); font-weight: 700; }
+  .bar {
+    height: 8px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+  .bar > span {
+    display: block; height: 100%;
+    background: var(--accent);
+    border-radius: 999px;
+    width: 0%;
+    transition: width var(--t-med) ease;
+  }
+
+  /* ---------- subject pages ---------- */
+  .subj-title {
+    font-size: clamp(2.4rem, 8vw, 5rem);
+    line-height: 1;
+    margin-bottom: 14px;
+  }
+  .subj-intro {
+    color: var(--ink-dim);
+    max-width: 52ch;
+    margin: 0 0 clamp(36px, 6vh, 60px);
+  }
+  .subj-progress {
+    display: flex; align-items: center; gap: 16px;
+    font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-dim);
+    margin-bottom: clamp(32px, 6vh, 56px);
+  }
+  .subj-progress .bar { flex: 1; max-width: 420px; }
+
+  .units { display: grid; gap: 18px; }
+  .unit {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: clamp(20px, 4vw, 32px);
+  }
+  .unit-head {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .chip {
+    font-family: var(--font-mono); font-weight: 700;
+    font-size: 0.82rem; letter-spacing: 0.14em;
+    color: var(--accent);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 5px 10px;
+  }
+  .unit-name { font-family: var(--font-display); font-weight: 600; font-size: 1.15rem; }
+  .unit-count {
+    margin-left: auto;
+    font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .unit .bar { margin: 16px 0 20px; }
+
+  .tasks { display: grid; gap: 2px; }
+  .task {
+    display: flex; align-items: center; gap: 14px;
+    min-height: 44px;
+    padding: 8px 8px 8px 4px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background var(--t-fast);
+  }
+  .task:hover { background: rgba(255, 255, 255, 0.04); }
+  .task input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .box {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    border: 1.5px solid var(--line-2);
+    border-radius: 6px;
+    display: grid; place-items: center;
+    transition: background var(--t-fast), border-color var(--t-fast);
+  }
+  .box svg { width: 14px; height: 14px; stroke: var(--accent-ink); opacity: 0; transition: opacity var(--t-fast); }
+  .task input:checked ~ .box { background: var(--accent); border-color: var(--accent); }
+  .task input:checked ~ .box svg { opacity: 1; }
+  .task input:focus-visible ~ .box { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .task-label { color: var(--ink-dim); transition: color var(--t-fast); }
+  .task input:checked ~ .task-label { color: var(--ink); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+
+  .reset-row { margin-top: 28px; }
+  .btn-ghost {
+    font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: color var(--t-fast), border-color var(--t-fast);
+  }
+  .btn-ghost:hover { color: var(--ink); border-color: var(--line-2); }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 40px;
+    font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-faint);
+    transition: color var(--t-fast);
+  }
+  .back-link:hover { color: var(--accent); }
+  .back-link svg { transition: transform var(--t-med); }
+  .back-link:hover svg { transform: translateX(-5px); }
+
+  /* ---------- end page ---------- */
+  .end {
+    min-height: calc(100vh - 64px);
+    display: grid; place-content: center; text-align: center;
+    padding: var(--pad);
+  }
+  .end-face {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(4rem, 20vw, 11rem);
+    line-height: 1;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+  }
+  .end-title {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(2rem, 7vw, 3.6rem);
+    margin: 18px 0 12px;
+  }
+  .end-note { color: var(--ink-dim); max-width: 34ch; margin: 0 auto; }
+  .end-echo {
+    margin-top: 34px;
+    font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .end-echo b { color: var(--ink-dim); font-weight: 500; }
+
+  /* ---------- footer ---------- */
+  .foot {
+    border-top: 1px solid var(--line);
+    padding: 26px var(--pad);
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-faint);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (min-width: 720px) {
+    .s-meta { display: block; }
+  }
+  @media (max-width: 900px) {
+    .countdown { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 620px) {
+    .brand { font-size: 1rem; }
+    .nav { gap: 10px; }
+  }
+  @media (max-width: 460px) {
+    .countdown { grid-template-columns: repeat(2, 1fr); }
+    .cd-cell.is-secs { grid-column: 1 / -1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#home">Skip to content</a>
+
+<nav class="nav" aria-label="Primary">
+  <a href="#home" class="brand" aria-label="SOLAR — home">SOLAR<span class="dot">.</span></a>
+  <div class="nav-links" id="navLinks">
+    <a href="#home">Home</a>
+    <a href="#maths">Mathematics</a>
+    <a href="#accounting">Accounting</a>
+    <a href="#business">Business</a>
+    <a href="#end">End</a>
+  </div>
+</nav>
+
+<main id="main">
+
+  <!-- ============ PAGE 1 — HOME ============ -->
+  <section class="page" id="home" aria-labelledby="home-h">
+    <div class="wrap">
+      <p class="eyebrow">A-Level &middot; Class of 2027</p>
+      <h1 class="hero-title" id="home-h" tabindex="-1">The clock is already running.</h1>
+      <p class="hero-sub">A single view of what's left before the first paper &mdash; and how far the revision has come.</p>
+
+      <div class="countdown" id="countdown" role="timer" aria-hidden="true">
+        <div class="cd-cell"><span class="cd-num" id="cd-months">--</span><span class="cd-label">Months</span></div>
+        <div class="cd-cell"><span class="cd-num" id="cd-days">--</span><span class="cd-label">Days</span></div>
+        <div class="cd-cell"><span class="cd-num" id="cd-hours">--</span><span class="cd-label">Hours</span></div>
+        <div class="cd-cell"><span class="cd-num" id="cd-mins">--</span><span class="cd-label">Minutes</span></div>
+        <div class="cd-cell is-secs"><span class="cd-num" id="cd-secs">--</span><span class="cd-label">Seconds</span></div>
+      </div>
+      <p class="cd-foot">
+        <span id="cd-foot-text">Counting down to 1 May 2027, 09:00</span>
+      </p>
+      <p class="sr-only" role="status" aria-live="polite" id="cd-status"></p>
+
+      <p class="subjects-head">Subjects &mdash; 3</p>
+      <div id="subjectList"></div>
+
+      <div class="meter">
+        <div class="meter-top">
+          <span>Revision progress</span>
+          <span><b id="ov-pct">0%</b> &nbsp;&middot;&nbsp; <span id="ov-count">0 / 0</span> milestones</span>
+        </div>
+        <div class="bar"><span id="ov-bar"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PAGE 2 — MATHEMATICS ============ -->
+  <section class="page" id="maths" aria-labelledby="maths-h">
+    <div class="wrap">
+      <p class="eyebrow">Subject 01</p>
+      <h2 class="subj-title" id="maths-h" tabindex="-1">Mathematics</h2>
+      <p class="subj-intro">Three units to carry. Tick each milestone as it's done &mdash; progress is saved in this browser.</p>
+      <div class="subj-progress">
+        <span id="maths-frac">0 / 0</span>
+        <span class="bar"><span id="maths-bar"></span></span>
+        <span id="maths-pct">0%</span>
+      </div>
+      <div class="units" id="maths-units"></div>
+      <div class="reset-row"><button class="btn-ghost" data-reset="maths">Reset Mathematics</button></div>
+      <a href="#home" class="back-link" data-nav><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to overview</a>
+    </div>
+  </section>
+
+  <!-- ============ PAGE 3 — ACCOUNTING ============ -->
+  <section class="page" id="accounting" aria-labelledby="acc-h">
+    <div class="wrap">
+      <p class="eyebrow">Subject 02</p>
+      <h2 class="subj-title" id="acc-h" tabindex="-1">Accounting</h2>
+      <p class="subj-intro">One unit. Keep it tight &mdash; tick each milestone as it's done.</p>
+      <div class="subj-progress">
+        <span id="accounting-frac">0 / 0</span>
+        <span class="bar"><span id="accounting-bar"></span></span>
+        <span id="accounting-pct">0%</span>
+      </div>
+      <div class="units" id="accounting-units"></div>
+      <div class="reset-row"><button class="btn-ghost" data-reset="accounting">Reset Accounting</button></div>
+      <a href="#home" class="back-link" data-nav><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to overview</a>
+    </div>
+  </section>
+
+  <!-- ============ PAGE 4 — BUSINESS ============ -->
+  <section class="page" id="business" aria-labelledby="bus-h">
+    <div class="wrap">
+      <p class="eyebrow">Subject 03</p>
+      <h2 class="subj-title" id="bus-h" tabindex="-1">Business</h2>
+      <p class="subj-intro">Two units &mdash; Unit 3 and Unit 4. Tick each milestone as it's done.</p>
+      <div class="subj-progress">
+        <span id="business-frac">0 / 0</span>
+        <span class="bar"><span id="business-bar"></span></span>
+        <span id="business-pct">0%</span>
+      </div>
+      <div class="units" id="business-units"></div>
+      <div class="reset-row"><button class="btn-ghost" data-reset="business">Reset Business</button></div>
+      <a href="#home" class="back-link" data-nav><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back to overview</a>
+    </div>
+  </section>
+
+  <!-- ============ PAGE 5 — END ============ -->
+  <section class="page" id="end" aria-labelledby="end-h">
+    <div class="end">
+      <div>
+        <div class="end-face" aria-hidden="true">:)</div>
+        <h2 class="end-title" id="end-h" tabindex="-1">Good luck.</h2>
+        <p class="end-note">You've seen the number. You've done the work. Now go and sit it.</p>
+        <p class="end-echo"><b id="end-echo">&nbsp;</b></p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <span>SOLAR</span>
+  <span>Class of 2027</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* -------------------- config -------------------- */
+  var TARGET = new Date(2027, 4, 1, 9, 0, 0); // 1 May 2027, 09:00 local
+
+  var TASKS = [
+    "Syllabus notes complete",
+    "Past papers — 5 completed",
+    "Weak topics reviewed",
+    "Full timed mock"
+  ];
+
+  var SUBJECTS = [
+    {
+      id: "maths", name: "Mathematics", index: "01",
+      units: [
+        { code: "P3", name: "Pure Mathematics 3" },
+        { code: "P4", name: "Pure Mathematics 4" },
+        { code: "S2", name: "Probability & Statistics 2" }
+      ]
+    },
+    {
+      id: "accounting", name: "Accounting", index: "02",
+      units: [
+        { code: "U1", name: "Unit 1" }
+      ]
+    },
+    {
+      id: "business", name: "Business", index: "03",
+      units: [
+        { code: "U3", name: "Unit 3" },
+        { code: "U4", name: "Unit 4" }
+      ]
+    }
+  ];
+
+  var PAGES = ["home", "maths", "accounting", "business", "end"];
+  var STORE_KEY = "solar.progress.v1";
+
+  /* -------------------- state -------------------- */
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  function saveState() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  var state = loadState();
+
+  function taskId(subjectId, unitCode, i) { return subjectId + "." + unitCode + "." + i; }
+  function isDone(id) { return state[id] === true; }
+
+  /* -------------------- build subject pages -------------------- */
+  var CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+
+  function buildUnits(subject) {
+    var container = document.getElementById(subject.id + "-units");
+    if (!container) return;
+    container.innerHTML = "";
+
+    subject.units.forEach(function (unit) {
+      var el = document.createElement("article");
+      el.className = "unit";
+
+      var head = document.createElement("div");
+      head.className = "unit-head";
+      head.innerHTML =
+        '<span class="chip">' + unit.code + '</span>' +
+        '<span class="unit-name">' + unit.name + '</span>' +
+        '<span class="unit-count" data-unitcount="' + subject.id + "." + unit.code + '">0 / ' + TASKS.length + '</span>';
+      el.appendChild(head);
+
+      var bar = document.createElement("div");
+      bar.className = "bar";
+      bar.innerHTML = '<span data-unitbar="' + subject.id + "." + unit.code + '"></span>';
+      el.appendChild(bar);
+
+      var tasks = document.createElement("div");
+      tasks.className = "tasks";
+      TASKS.forEach(function (label, i) {
+        var id = taskId(subject.id, unit.code, i);
+        var lab = document.createElement("label");
+        lab.className = "task";
+        lab.innerHTML =
+          '<input type="checkbox" ' + (isDone(id) ? "checked" : "") + ' data-task="' + id + '" />' +
+          '<span class="box" aria-hidden="true">' + CHECK_SVG + '</span>' +
+          '<span class="task-label">' + label + '</span>';
+        tasks.appendChild(lab);
+      });
+      el.appendChild(tasks);
+      container.appendChild(el);
+    });
+  }
+
+  /* -------------------- build home subject list -------------------- */
+  function buildSubjectList() {
+    var list = document.getElementById("subjectList");
+    if (!list) return;
+    list.innerHTML = "";
+    SUBJECTS.forEach(function (s) {
+      var a = document.createElement("a");
+      a.className = "subject-row";
+      a.href = "#" + s.id;
+      a.setAttribute("data-nav", "");
+      var unitCount = s.units.length;
+      a.innerHTML =
+        '<span class="s-index">' + s.index + '</span>' +
+        '<span class="s-name">' + s.name.toUpperCase() + '</span>' +
+        '<span class="s-meta">' + unitCount + (unitCount === 1 ? ' unit' : ' units') + '</span>' +
+        '<span class="s-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>';
+      list.appendChild(a);
+    });
+  }
+
+  /* -------------------- progress maths -------------------- */
+  function unitStats(subjectId, unitCode) {
+    var done = 0;
+    for (var i = 0; i < TASKS.length; i++) {
+      if (isDone(taskId(subjectId, unitCode, i))) done++;
+    }
+    return { done: done, total: TASKS.length };
+  }
+  function subjectStats(subject) {
+    var done = 0, total = 0;
+    subject.units.forEach(function (u) {
+      var s = unitStats(subject.id, u.code);
+      done += s.done; total += s.total;
+    });
+    return { done: done, total: total };
+  }
+
+  function refreshProgress() {
+    var grandDone = 0, grandTotal = 0;
+
+    SUBJECTS.forEach(function (subject) {
+      subject.units.forEach(function (u) {
+        var s = unitStats(subject.id, u.code);
+        var key = subject.id + "." + u.code;
+        var bar = document.querySelector('[data-unitbar="' + key + '"]');
+        var cnt = document.querySelector('[data-unitcount="' + key + '"]');
+        var pct = s.total ? Math.round((s.done / s.total) * 100) : 0;
+        if (bar) bar.style.width = pct + "%";
+        if (cnt) cnt.textContent = s.done + " / " + s.total;
+      });
+
+      var ss = subjectStats(subject);
+      grandDone += ss.done; grandTotal += ss.total;
+      var sp = ss.total ? Math.round((ss.done / ss.total) * 100) : 0;
+      setText(subject.id + "-frac", ss.done + " / " + ss.total);
+      setText(subject.id + "-pct", sp + "%");
+      var sbar = document.getElementById(subject.id + "-bar");
+      if (sbar) sbar.style.width = sp + "%";
+    });
+
+    var gp = grandTotal ? Math.round((grandDone / grandTotal) * 100) : 0;
+    setText("ov-pct", gp + "%");
+    setText("ov-count", grandDone + " / " + grandTotal);
+    var ovBar = document.getElementById("ov-bar");
+    if (ovBar) ovBar.style.width = gp + "%";
+  }
+
+  function setText(id, txt) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  }
+
+  /* -------------------- checkbox + reset handlers -------------------- */
+  document.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t && t.matches('input[type="checkbox"][data-task]')) {
+      var id = t.getAttribute("data-task");
+      if (t.checked) state[id] = true; else delete state[id];
+      saveState();
+      refreshProgress();
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest("[data-reset]") : null;
+    if (!btn) return;
+    var subjectId = btn.getAttribute("data-reset");
+    var subject = SUBJECTS.filter(function (s) { return s.id === subjectId; })[0];
+    if (!subject) return;
+    if (!window.confirm("Clear all ticked milestones for " + subject.name + "?")) return;
+    subject.units.forEach(function (u) {
+      for (var i = 0; i < TASKS.length; i++) delete state[taskId(subject.id, u.code, i)];
+    });
+    saveState();
+    buildUnits(subject);
+    refreshProgress();
+  });
+
+  /* -------------------- router -------------------- */
+  function currentPage() {
+    var h = (location.hash || "#home").replace("#", "");
+    return PAGES.indexOf(h) !== -1 ? h : "home";
+  }
+
+  function showPage(id, focusHeading) {
+    PAGES.forEach(function (p) {
+      var sec = document.getElementById(p);
+      if (sec) sec.classList.toggle("active", p === id);
+    });
+    var links = document.querySelectorAll("#navLinks a");
+    links.forEach(function (a) {
+      a.classList.toggle("active", a.getAttribute("href") === "#" + id);
+      if (a.classList.contains("active")) a.setAttribute("aria-current", "page");
+      else a.removeAttribute("aria-current");
+    });
+    document.title = id === "home" ? "SOLAR" : "SOLAR — " + id.charAt(0).toUpperCase() + id.slice(1);
+
+    if (focusHeading) {
+      var sec = document.getElementById(id);
+      var h = sec ? sec.querySelector("h1, h2") : null;
+      if (h) { h.focus(); }
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+    if (id === "end") updateEndEcho();
+  }
+
+  window.addEventListener("hashchange", function () { showPage(currentPage(), true); });
+
+  // drive navigation directly on click too, so it works even where
+  // hashchange is unreliable (and re-clicking the current tab re-scrolls up)
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest ? e.target.closest('a[href^="#"]') : null;
+    if (!a) return;
+    var target = a.getAttribute("href").replace("#", "");
+    if (PAGES.indexOf(target) === -1) return;
+    e.preventDefault();
+    if (location.hash !== "#" + target) {
+      try { history.pushState(null, "", "#" + target); } catch (err) { location.hash = target; }
+    }
+    showPage(target, true);
+  });
+
+  /* -------------------- countdown -------------------- */
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  function breakdown(from, to) {
+    if (to <= from) return null;
+    var y = to.getFullYear() - from.getFullYear();
+    var mo = to.getMonth() - from.getMonth();
+    var d = to.getDate() - from.getDate();
+    var h = to.getHours() - from.getHours();
+    var mi = to.getMinutes() - from.getMinutes();
+    var s = to.getSeconds() - from.getSeconds();
+    if (s < 0) { s += 60; mi--; }
+    if (mi < 0) { mi += 60; h--; }
+    if (h < 0) { h += 24; d--; }
+    if (d < 0) {
+      var daysInPrevMonth = new Date(to.getFullYear(), to.getMonth(), 0).getDate();
+      d += daysInPrevMonth; mo--;
+    }
+    if (mo < 0) { mo += 12; y--; }
+    return { months: y * 12 + mo, days: d, hours: h, mins: mi, secs: s };
+  }
+
+  var lastStatusMin = -1;
+
+  function tickCountdown() {
+    var now = new Date();
+    var b = breakdown(now, TARGET);
+    var mEl = document.getElementById("cd-months"),
+        dEl = document.getElementById("cd-days"),
+        hEl = document.getElementById("cd-hours"),
+        miEl = document.getElementById("cd-mins"),
+        sEl = document.getElementById("cd-secs");
+
+    if (!b) {
+      if (mEl) mEl.textContent = "00";
+      if (dEl) dEl.textContent = "00";
+      if (hEl) hEl.textContent = "00";
+      if (miEl) miEl.textContent = "00";
+      if (sEl) sEl.textContent = "00";
+      var foot = document.getElementById("cd-foot-text");
+      if (foot) foot.textContent = "It's exam day — good luck";
+      setText("cd-status", "The countdown has reached zero. Exam day is here.");
+      return;
+    }
+
+    if (mEl) mEl.textContent = pad(b.months);
+    if (dEl) dEl.textContent = pad(b.days);
+    if (hEl) hEl.textContent = pad(b.hours);
+    if (miEl) miEl.textContent = pad(b.mins);
+    if (sEl) sEl.textContent = pad(b.secs);
+
+    // announce sparingly — once a minute, not every second
+    if (b.mins !== lastStatusMin) {
+      lastStatusMin = b.mins;
+      setText("cd-status",
+        b.months + " months, " + b.days + " days, " + b.hours + " hours remaining until 1 May 2027.");
+    }
+  }
+
+  function updateEndEcho() {
+    var b = breakdown(new Date(), TARGET);
+    var el = document.getElementById("end-echo");
+    if (!el) return;
+    el.textContent = b
+      ? b.months + " months · " + b.days + " days · " + pad(b.hours) + ":" + pad(b.mins) + " to go"
+      : "the wait is over";
+  }
+
+  /* -------------------- init -------------------- */
+  buildSubjectList();
+  SUBJECTS.forEach(buildUnits);
+  refreshProgress();
+  showPage(currentPage(), false);
+  tickCountdown();
+  setInterval(tickCountdown, 1000);
+})();
+</script>
+</body>
+</html>
